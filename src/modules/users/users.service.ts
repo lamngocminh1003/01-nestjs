@@ -1,4 +1,4 @@
-import { IsEmail } from 'class-validator';
+import { v4 as uuidv4 } from 'uuid';
 import { hashPassword } from './../../helpers/util';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -7,6 +7,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import mongoose, { Model } from 'mongoose';
 import aqp from 'api-query-params';
+import { CreateAuthDto } from '@/auth/dto/create-auth.dto';
+import dayjs from 'dayjs';
 
 @Injectable()
 export class UsersService {
@@ -71,11 +73,29 @@ export class UsersService {
     );
   }
 
-  remove(id: string) {
+  async remove(id: string) {
     if (mongoose.isValidObjectId(id)) {
       return this.userModel.deleteOne({ _id: id }).exec();
     } else {
       throw new BadRequestException('Id không hợp lệ');
     }
+  }
+  async handleRegister(registerDto: CreateAuthDto) {
+    const { name, email, password } = registerDto;
+    const isEmailExist = await this.IsEmailExist(email);
+    if (isEmailExist) {
+      throw new BadRequestException('Email đã tồn tại');
+    }
+    const hashPasswordUser = await hashPassword(password);
+    const user = await this.userModel.create({
+      name,
+      email,
+      password: hashPasswordUser,
+      isActive: false,
+      codeId: uuidv4(),
+      codeExpired: dayjs().add(1, 'year'), // manipulate
+    });
+
+    return { _id: user._id };
   }
 }

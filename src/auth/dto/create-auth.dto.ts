@@ -6,4 +6,6 @@ export class CreateAuthDto {
   email: string;
   @IsNotEmpty({ message: 'Mật khẩu không được để trống' })
   password: string;
+  @IsNotEmpty({ message: 'Name không được để trống' })
+  name: string;
 }
