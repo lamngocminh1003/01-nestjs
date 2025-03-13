@@ -37,7 +37,8 @@ export class AuthController {
         to: 'lamngocminh1003@gmail.com', // list of receivers
         subject: 'Testing Nest MailerModule ✔', // Subject line
         text: 'welcome', // plaintext body
-        html: '<b>welcome Amie</b>', // HTML body content
+        template: 'register',
+        context: { name: 'Amie', activationCode: '123' }, // The `.pug` or `.hbs` extension is appended automatically
       })
       .then(() => {})
       .catch(() => {});

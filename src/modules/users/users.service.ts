@@ -9,10 +9,14 @@ import mongoose, { Model } from 'mongoose';
 import aqp from 'api-query-params';
 import { CreateAuthDto } from '@/auth/dto/create-auth.dto';
 import dayjs from 'dayjs';
+import { MailerService } from '@nestjs-modules/mailer';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<User>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<User>,
+    private readonly mailerService: MailerService,
+  ) {}
 
   IsEmailExist = async (email: string) => {
     const user = await this.userModel.findOne({
@@ -86,16 +90,26 @@ export class UsersService {
     if (isEmailExist) {
       throw new BadRequestException('Email đã tồn tại');
     }
+    const codeId = uuidv4();
+
     const hashPasswordUser = await hashPassword(password);
     const user = await this.userModel.create({
       name,
       email,
       password: hashPasswordUser,
       isActive: false,
-      codeId: uuidv4(),
-      codeExpired: dayjs().add(1, 'year'), // manipulate
+      codeId: codeId,
+      codeExpired: dayjs().add(30, 'seconds'), // manipulate
     });
-
+    this.mailerService
+      .sendMail({
+        to: user.email, // list of receivers
+        subject: 'Activate your account at website', // Subject line
+        template: 'register',
+        context: { name: user.name, activationCode: codeId }, // The `.pug` or `.hbs` extension is appended automatically
+      })
+      .then(() => {})
+      .catch(() => {});
     return { _id: user._id };
   }
 }
