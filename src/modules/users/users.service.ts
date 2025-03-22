@@ -7,9 +7,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import mongoose, { Model } from 'mongoose';
 import aqp from 'api-query-params';
-import { CreateAuthDto } from '@/auth/dto/create-auth.dto';
+import { CreateAuthDto, CodeAuthDto } from '@/auth/dto/create-auth.dto';
 import dayjs from 'dayjs';
 import { MailerService } from '@nestjs-modules/mailer';
+import { Types } from 'mongoose';
 
 @Injectable()
 export class UsersService {
@@ -99,7 +100,7 @@ export class UsersService {
       password: hashPasswordUser,
       isActive: false,
       codeId: codeId,
-      codeExpired: dayjs().add(30, 'seconds'), // manipulate
+      codeExpired: dayjs().add(30, 'minutes'), // manipulate
     });
     this.mailerService
       .sendMail({
@@ -111,5 +112,29 @@ export class UsersService {
       .then(() => {})
       .catch(() => {});
     return { _id: user._id };
+  }
+  async checkCode(data: CodeAuthDto) {
+    const { _id, code } = data;
+    console.log('data', data);
+
+    if (!Types.ObjectId.isValid(_id)) {
+      throw new BadRequestException('_id không hợp lệ');
+    }
+
+    const user = await this.userModel.findOne({
+      _id: new Types.ObjectId(_id),
+      codeId: code,
+    });
+    if (!user) {
+      throw new BadRequestException('User không tồn tại');
+    }
+    if (user.codeId !== code) {
+      throw new BadRequestException('Mã code không đúng');
+    }
+    if (dayjs().isAfter(user.codeExpired)) {
+      throw new BadRequestException('Mã code đã hết hạn');
+    }
+    await this.userModel.updateOne({ _id }, { isActive: true });
+    return data;
   }
 }
