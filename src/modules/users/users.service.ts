@@ -137,4 +137,36 @@ export class UsersService {
     await this.userModel.updateOne({ _id }, { isActive: true });
     return data;
   }
+  async retryActive(email: string) {
+    const user = await this.userModel.findOne({
+      email,
+    });
+    if (!user) {
+      throw new BadRequestException('Email không tồn tại');
+    }
+    if (user.isActive) {
+      throw new BadRequestException('Tài khoản đã được kích hoạt');
+    }
+    const codeId = uuidv4();
+
+    await this.userModel.updateOne(
+      { email },
+      { codeId: codeId, codeExpired: dayjs().add(30, 'minutes') },
+    );
+    // 🛠 Lấy lại user để có `codeId`
+    const updatedUser = await this.userModel.findOne({ email });
+    if (!updatedUser) {
+      throw new BadRequestException('Không thể gửi mã code');
+    }
+    this.mailerService
+      .sendMail({
+        to: user.email, // list of receivers
+        subject: 'Activate your account at website', // Subject line
+        template: 'register',
+        context: { name: user.name, activationCode: updatedUser.codeId }, // The `.pug` or `.hbs` extension is appended automatically
+      })
+      .then(() => {})
+      .catch(() => {});
+    return { _id: user._id };
+  }
 }
